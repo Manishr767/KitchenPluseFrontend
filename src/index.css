@@ -1,0 +1,50 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Green operational accent */
+  --color-brand-50: #eaf6ef;
+  --color-brand-100: #d3ecdd;
+  --color-brand-200: #a8d9bc;
+  --color-brand-500: #2f9e5f;
+  --color-brand-600: #26844f;
+  --color-brand-700: #1f6a40;
+
+  /* Dark charcoal sidebar */
+  --color-sidebar: #23282c;
+  --color-sidebar-hover: #2e3439;
+  --color-sidebar-line: #363d43;
+
+  --color-page: #f3f4f6;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-page);
+  color: #1f2937;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Native dialog: keep the backdrop subtle */
+dialog::backdrop {
+  background: rgb(17 24 39 / 0.45);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

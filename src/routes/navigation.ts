@@ -1,0 +1,84 @@
+import {
+  Boxes,
+  ClipboardCheck,
+  ClipboardList,
+  LayoutDashboard,
+  Carrot,
+  Ruler,
+  Store,
+  Truck,
+  Users,
+  Warehouse,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react'
+import type { Role } from '@/types'
+
+/** Roles allowed to call GET /api/branches (list). BRANCH_STAFF may only read their own branch. */
+export const BRANCH_LIST_ROLES: Role[] = ['ADMIN', 'CENTRAL_OFFICE_STAFF', 'WAREHOUSE_MANAGER']
+export const ADMIN_ONLY: Role[] = ['ADMIN']
+
+export interface NavItem {
+  to: string
+  label: string
+  icon: LucideIcon
+  /** Undefined = every authenticated role. */
+  roles?: Role[]
+}
+
+export const MAIN_NAV: NavItem[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/branches', label: 'Branches', icon: Store, roles: BRANCH_LIST_ROLES },
+  { to: '/my-branch', label: 'My branch', icon: Store, roles: ['BRANCH_STAFF'] },
+  { to: '/ingredients', label: 'Ingredients', icon: Carrot },
+  { to: '/units', label: 'Units', icon: Ruler },
+  { to: '/users', label: 'Users', icon: Users, roles: ADMIN_ONLY },
+]
+
+export interface FutureModule extends NavItem {
+  description: string
+}
+
+// Placeholders only. The backend has no tables or endpoints for these yet.
+export const FUTURE_NAV: FutureModule[] = [
+  {
+    to: '/inventory',
+    label: 'Inventory',
+    icon: Boxes,
+    description: 'Branch staff will see the latest stock levels for their branch here.',
+  },
+  {
+    to: '/stock-counting',
+    label: 'Stock counting',
+    icon: ClipboardCheck,
+    description: 'Branch staff will record periodic stock counts here.',
+  },
+  {
+    to: '/requests',
+    label: 'Ingredient requests',
+    icon: ClipboardList,
+    description: 'Branch staff will create ingredient requests and follow their status here.',
+  },
+  {
+    to: '/approvals',
+    label: 'Approvals',
+    icon: ShieldCheck,
+    description: 'Central office will review requests here and approve, partially approve or reject them.',
+  },
+  {
+    to: '/warehouse',
+    label: 'Warehouse',
+    icon: Warehouse,
+    description: 'The warehouse will prepare and dispatch approved orders here.',
+  },
+  {
+    to: '/deliveries',
+    label: 'Deliveries',
+    icon: Truck,
+    description: 'Drivers will update delivery progress and branches will track it here.',
+  },
+]
+
+export function canSee(item: NavItem, role: Role): boolean {
+  return !item.roles || item.roles.includes(role)
+}
