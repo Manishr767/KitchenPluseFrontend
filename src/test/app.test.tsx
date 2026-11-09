@@ -139,10 +139,10 @@ describe('session handling', () => {
 
 describe('role-based navigation', () => {
   const cases: [string, string, string[], string[]][] = [
-    ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
-    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Ingredients', 'Units'], ['Users', 'Branches']],
+    ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Inventory', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
+    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredients', 'Units'], ['Users', 'My branch']],
+    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredients', 'Units'], ['Users', 'My branch']],
+    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredients', 'Units'], ['Users', 'Branches']],
     ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch']],
   ]
 
@@ -153,7 +153,7 @@ describe('role-based navigation', () => {
     for (const label of visible) expect(nav().getByRole('link', { name: label })).toBeTruthy()
     for (const label of hidden) expect(nav().queryByRole('link', { name: label })).toBeNull()
     // placeholders are always present and clearly marked
-    for (const label of ['Inventory', 'Ingredient requests', 'Approvals', 'Warehouse', 'Deliveries']) {
+    for (const label of ['Ingredient requests', 'Approvals', 'Warehouse', 'Deliveries']) {
       expect(nav().getByRole('link', { name: new RegExp(label) })).toBeTruthy()
     }
   })
