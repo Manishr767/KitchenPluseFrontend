@@ -5,15 +5,19 @@ export interface IngredientRequestItem {
   id: number
   ingredientId: number
   requestedQuantity: number
+  approvedQuantity: number | null
 }
 
 export interface IngredientRequest {
   id: number
   branchId: number
   createdByUserId: number
-  status: 'DRAFT' | 'SUBMITTED'
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED'
   createdAt: ApiDateTime
   submittedAt: ApiDateTime | null
+  reviewedByUserId: number | null
+  reviewedAt: ApiDateTime | null
+  reviewNote: string | null
   items: IngredientRequestItem[]
 }
 
@@ -33,5 +37,16 @@ export async function createIngredientRequest(body: CreateIngredientRequest): Pr
 
 export async function submitIngredientRequest(id: number): Promise<IngredientRequest> {
   const { data } = await api.post<IngredientRequest>(`/api/ingredient-requests/${id}/submit`)
+  return data
+}
+
+
+export interface ReviewIngredientRequest {
+  items: { ingredientId: number; approvedQuantity: number }[]
+  reviewNote?: string
+}
+
+export async function reviewIngredientRequest(id: number, body: ReviewIngredientRequest): Promise<IngredientRequest> {
+  const { data } = await api.post<IngredientRequest>(`/api/ingredient-requests/${id}/review`, body)
   return data
 }

@@ -4,6 +4,7 @@
 import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { api } from '@/api/client'
 import type { Branch, Ingredient, InventoryItem, Role, Unit, User } from '@/types'
+import type { IngredientRequest } from '@/api/ingredient-requests.api'
 
 const NOW = '2026-01-15T09:30:00.123456'
 
@@ -27,6 +28,7 @@ export interface FakeState {
   units: Unit[]
   ingredients: Ingredient[]
   inventory: InventoryItem[]
+  ingredientRequests: IngredientRequest[]
   /** Every request seen, for assertions. */
   calls: { method: string; url: string; params?: Record<string, unknown>; auth: string | null; body?: unknown }[]
   /** When set, every request fails as if the server were down. */
@@ -59,6 +61,11 @@ export function freshState(): FakeState {
       { id: 3, name: 'Old spice', stockUnit: units[0], active: false, createdAt: NOW, updatedAt: NOW },
     ],
     inventory: [],
+    ingredientRequests: [{
+      id: 1, branchId: 1, createdByUserId: 2, status: 'SUBMITTED', createdAt: NOW, submittedAt: NOW,
+      reviewedByUserId: null, reviewedAt: null, reviewNote: null,
+      items: [{ id: 1, ingredientId: 1, requestedQuantity: 10, approvedQuantity: null }],
+    }],
     calls: [],
     down: false,
     failing: new Set(),
@@ -86,6 +93,29 @@ function route(state: FakeState, method: string, path: string, params: Record<st
   const role = caller.role
 
   if (method === 'GET' && path === '/api/users/me') return ok(caller)
+  if (method === 'GET' && path === '/api/ingredient-requests') {
+    if (!['ADMIN', 'BRANCH_STAFF', 'CENTRAL_OFFICE_STAFF', 'WAREHOUSE_MANAGER'].includes(role)) return forbidden()
+    return ok(role === 'BRANCH_STAFF' ? state.ingredientRequests.filter((request) => request.branchId === caller.branchId) : state.ingredientRequests)
+  }
+  const reviewMatch = path.match(/^\/api\/ingredient-requests\/(\d+)\/review$/)
+  if (reviewMatch && method === 'POST') {
+    if (!['ADMIN', 'CENTRAL_OFFICE_STAFF'].includes(role)) return forbidden()
+    const request = state.ingredientRequests.find((entry) => entry.id === Number(reviewMatch[1]))
+    if (!request || request.status !== 'SUBMITTED') return problem(422, 'Business rule violation', 'Only submitted requests can be reviewed.')
+    if (!Array.isArray(body?.items) || body.items.length !== request.items.length) return problem(422, 'Business rule violation', 'Review must include every requested ingredient.')
+    for (const line of body.items) {
+      const item = request.items.find((entry) => entry.ingredientId === Number(line.ingredientId))
+      if (!item || Number(line.approvedQuantity) < 0 || Number(line.approvedQuantity) > item.requestedQuantity) return problem(422, 'Business rule violation', 'Invalid approved quantity.')
+      item.approvedQuantity = Number(line.approvedQuantity)
+    }
+    const allFull = request.items.every((item) => item.approvedQuantity === item.requestedQuantity)
+    const any = request.items.some((item) => (item.approvedQuantity ?? 0) > 0)
+    request.status = !any ? 'REJECTED' : allFull ? 'APPROVED' : 'PARTIALLY_APPROVED'
+    request.reviewedByUserId = caller.id
+    request.reviewedAt = NOW
+    request.reviewNote = body.reviewNote ?? null
+    return ok(request)
+  }
 
   if (method === 'GET' && path === '/api/inventory') {
     if (!['ADMIN', 'BRANCH_STAFF', 'CENTRAL_OFFICE_STAFF', 'WAREHOUSE_MANAGER'].includes(role)) return forbidden()

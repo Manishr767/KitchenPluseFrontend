@@ -14,6 +14,7 @@ import { UserDetailPage } from '@/features/users/UserDetailPage'
 import { UserListPage } from '@/features/users/UserListPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
+import { ApprovalsPage } from '@/features/approvals/ApprovalsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RoleRoute, ProtectedRoute } from './guards'
 import { ADMIN_ONLY, BRANCH_LIST_ROLES, FUTURE_NAV } from './navigation'
@@ -39,11 +40,14 @@ export function AppRoutes() {
         <Route path="units" element={<UnitsPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="requests" element={<IngredientRequestsPage />} />
+        <Route element={<RoleRoute roles={['ADMIN', 'CENTRAL_OFFICE_STAFF']} />}>
+          <Route path="approvals" element={<ApprovalsPage />} />
+        </Route>
         <Route element={<RoleRoute roles={ADMIN_ONLY} />}>
           <Route path="users" element={<UserListPage />} />
           <Route path="users/:id" element={<UserDetailPage />} />
         </Route>
-        {FUTURE_NAV.map((module) => (
+        {FUTURE_NAV.filter((module) => module.to !== '/approvals').map((module) => (
           <Route key={module.to} path={module.to.slice(1)} element={<ComingSoonPage module={module} />} />
         ))}
         <Route path="*" element={<NotFoundPage />} />

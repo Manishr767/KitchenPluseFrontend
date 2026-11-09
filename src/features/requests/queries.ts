@@ -15,3 +15,12 @@ export function useCreateAndSubmitIngredientRequest() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ingredient-requests'] }),
   })
 }
+
+
+export function useReviewIngredientRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: api.ReviewIngredientRequest }) => api.reviewIngredientRequest(id, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ingredient-requests'] }),
+  })
+}

@@ -140,10 +140,10 @@ describe('session handling', () => {
 describe('role-based navigation', () => {
   const cases: [string, string, string[], string[]][] = [
     ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
-    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'Branches']],
-    ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch']],
+    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Approvals', 'Ingredients', 'Units'], ['Users', 'My branch']],
+    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'My branch', 'Approvals']],
+    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'Branches', 'Approvals']],
+    ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch', 'Approvals']],
   ]
 
   it.each(cases)('%s sees the right sidebar entries', async (_role, token, visible, hidden) => {
@@ -155,8 +155,8 @@ describe('role-based navigation', () => {
     if (_role === 'DELIVERY_PERSON') {
       expect(nav().queryByRole('link', { name: 'Ingredient requests' })).toBeNull()
     }
-    // Remaining workflow modules are placeholders until their APIs are implemented.
-    for (const label of ['Approvals', 'Warehouse', 'Deliveries']) {
+    // Warehouse and Deliveries remain placeholders; Approvals is limited to Central Office and Admin.
+    for (const label of ['Warehouse', 'Deliveries']) {
       expect(nav().getByRole('link', { name: new RegExp(label) })).toBeTruthy()
     }
   })
@@ -173,6 +173,33 @@ describe('role-based navigation', () => {
     renderApp('/deliveries')
     expect(await screen.findByText('Coming Soon – Backend Integration Pending')).toBeTruthy()
     expect(state.calls.filter((c) => c.url !== '/api/users/me')).toHaveLength(0)
+  })
+
+  it('allows Central Office and Admin to access approvals but blocks other roles', async () => {
+    saveSession('token-2', 600)
+    renderApp('/approvals')
+    expect(await screen.findByRole('heading', { name: 'You don’t have access to this page' })).toBeTruthy()
+    cleanup()
+    clearSession()
+    saveSession('token-3', 600)
+    renderApp('/approvals')
+    expect(await screen.findByRole('heading', { name: 'Approvals' })).toBeTruthy()
+  })
+
+  it('Central Office can partially approve a submitted branch request', async () => {
+    saveSession('token-3', 600)
+    renderApp('/approvals')
+    const user = userEvent.setup()
+    expect(await screen.findByRole('heading', { name: 'Approvals' })).toBeTruthy()
+    expect(await screen.findByText('Request #1 · Branch #1')).toBeTruthy()
+    const quantity = screen.getByLabelText('Flour approved quantity')
+    await user.clear(quantity)
+    await user.type(quantity, '8')
+    await user.type(screen.getByLabelText('Review note (optional)'), 'Only 8 kg available today')
+    await user.click(screen.getByRole('button', { name: 'Submit review' }))
+    await waitFor(() => expect(state.calls.some((call) => call.method === 'POST' && call.url === '/api/ingredient-requests/1/review')).toBe(true))
+    expect(state.calls.find((call) => call.method === 'POST' && call.url === '/api/ingredient-requests/1/review')?.body).toEqual({ items: [{ ingredientId: 1, approvedQuantity: 8 }], reviewNote: 'Only 8 kg available today' })
+    expect(await screen.findByText('PARTIALLY APPROVED')).toBeTruthy()
   })
 
   it('blocks non-branch staff from stock counting', async () => {
