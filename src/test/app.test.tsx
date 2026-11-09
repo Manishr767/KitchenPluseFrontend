@@ -139,10 +139,10 @@ describe('session handling', () => {
 
 describe('role-based navigation', () => {
   const cases: [string, string, string[], string[]][] = [
-    ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Ingredients', 'Units', 'Users'], ['My branch']],
+    ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
     ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Ingredients', 'Units'], ['Users', 'My branch']],
     ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Ingredients', 'Units'], ['Users', 'Branches']],
+    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Ingredients', 'Units'], ['Users', 'Branches']],
     ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch']],
   ]
 
@@ -153,7 +153,7 @@ describe('role-based navigation', () => {
     for (const label of visible) expect(nav().getByRole('link', { name: label })).toBeTruthy()
     for (const label of hidden) expect(nav().queryByRole('link', { name: label })).toBeNull()
     // placeholders are always present and clearly marked
-    for (const label of ['Inventory', 'Stock counting', 'Ingredient requests', 'Approvals', 'Warehouse', 'Deliveries']) {
+    for (const label of ['Inventory', 'Ingredient requests', 'Approvals', 'Warehouse', 'Deliveries']) {
       expect(nav().getByRole('link', { name: new RegExp(label) })).toBeTruthy()
     }
   })
@@ -170,6 +170,13 @@ describe('role-based navigation', () => {
     renderApp('/deliveries')
     expect(await screen.findByText('Coming Soon – Backend Integration Pending')).toBeTruthy()
     expect(state.calls.filter((c) => c.url !== '/api/users/me')).toHaveLength(0)
+  })
+
+  it('blocks non-branch staff from stock counting', async () => {
+    saveSession('token-1', 600)
+    renderApp('/stock-counting')
+    expect(await screen.findByRole('heading', { name: 'You don’t have access to this page' })).toBeTruthy()
+    expect(state.calls.some((call) => call.url === '/api/ingredients' || call.url === '/api/inventory')).toBe(false)
   })
 })
 
@@ -245,6 +252,34 @@ describe('data comes from the API', () => {
     expect(await screen.findByText(/Cannot reach the KitchenPulse server/)).toBeTruthy()
     expect(screen.queryByText('Main Street')).toBeNull()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  })
+})
+
+describe('stock counting', () => {
+  it('loads active ingredients and submits only entered quantities for the signed-in branch', async () => {
+    saveSession('token-2', 600)
+    renderApp('/stock-counting')
+    const user = userEvent.setup()
+    expect(await screen.findByText('Flour')).toBeTruthy()
+    expect(screen.getByText('Milk')).toBeTruthy()
+    expect(screen.queryByText('Old spice')).toBeNull()
+    await user.type(screen.getByLabelText('Flour counted quantity'), '12.5')
+    await user.click(screen.getByRole('button', { name: 'Submit stock count' }))
+    await waitFor(() => expect(state.calls.some((call) => call.method === 'POST' && call.url === '/api/stock-counts')).toBe(true))
+    const submitted = state.calls.find((call) => call.method === 'POST' && call.url === '/api/stock-counts')!
+    expect(submitted.auth).toBe('Bearer token-2')
+    expect(submitted.body).toEqual({ branchId: 1, items: [{ ingredientId: 1, quantity: 12.5 }] })
+    expect(await screen.findByText('Stock count #1 submitted (1 items).')).toBeTruthy()
+  })
+
+  it('does not submit quantities with more than three decimal places', async () => {
+    saveSession('token-2', 600)
+    renderApp('/stock-counting')
+    const user = userEvent.setup()
+    await screen.findByText('Flour')
+    await user.type(screen.getByLabelText('Flour counted quantity'), '1.2345')
+    expect(screen.getByRole('button', { name: 'Submit stock count' })).toHaveProperty('disabled', true)
+    expect(state.calls.some((call) => call.method === 'POST' && call.url === '/api/stock-counts')).toBe(false)
   })
 })
 

@@ -6,6 +6,7 @@ import { BranchListPage } from '@/features/branches/BranchListPage'
 import { MyBranchPage } from '@/features/branches/MyBranchPage'
 import { IngredientDetailPage } from '@/features/ingredients/IngredientDetailPage'
 import { IngredientListPage } from '@/features/ingredients/IngredientListPage'
+import { StockCountingPage } from '@/features/stock-counting/StockCountingPage'
 import { UnitsPage } from '@/features/units/UnitsPage'
 import { UserDetailPage } from '@/features/users/UserDetailPage'
 import { UserListPage } from '@/features/users/UserListPage'
@@ -19,18 +20,17 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-
       <Route element={<ProtectedRoute />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
-
         <Route element={<RoleRoute roles={BRANCH_LIST_ROLES} />}>
           <Route path="branches" element={<BranchListPage />} />
           <Route path="branches/:id" element={<BranchDetailPage />} />
         </Route>
         <Route element={<RoleRoute roles={['BRANCH_STAFF']} />}>
           <Route path="my-branch" element={<MyBranchPage />} />
+          <Route path="stock-counting" element={<StockCountingPage />} />
         </Route>
         <Route path="ingredients" element={<IngredientListPage />} />
         <Route path="ingredients/:id" element={<IngredientDetailPage />} />
@@ -39,7 +39,6 @@ export function AppRoutes() {
           <Route path="users" element={<UserListPage />} />
           <Route path="users/:id" element={<UserDetailPage />} />
         </Route>
-
         {FUTURE_NAV.map((module) => (
           <Route key={module.to} path={module.to.slice(1)} element={<ComingSoonPage module={module} />} />
         ))}

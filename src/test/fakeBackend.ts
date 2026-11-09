@@ -3,7 +3,7 @@
 // client, interceptors, API modules, hooks and components run unmodified.
 import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { api } from '@/api/client'
-import type { Branch, Ingredient, Role, Unit, User } from '@/types'
+import type { Branch, Ingredient, InventoryItem, Role, Unit, User } from '@/types'
 
 const NOW = '2026-01-15T09:30:00.123456'
 
@@ -26,6 +26,7 @@ export interface FakeState {
   branches: Branch[]
   units: Unit[]
   ingredients: Ingredient[]
+  inventory: InventoryItem[]
   /** Every request seen, for assertions. */
   calls: { method: string; url: string; params?: Record<string, unknown>; auth: string | null; body?: unknown }[]
   /** When set, every request fails as if the server were down. */
@@ -57,6 +58,7 @@ export function freshState(): FakeState {
       { id: 2, name: 'Milk', stockUnit: units[1], active: true, createdAt: NOW, updatedAt: NOW },
       { id: 3, name: 'Old spice', stockUnit: units[0], active: false, createdAt: NOW, updatedAt: NOW },
     ],
+    inventory: [],
     calls: [],
     down: false,
     failing: new Set(),
@@ -84,6 +86,39 @@ function route(state: FakeState, method: string, path: string, params: Record<st
   const role = caller.role
 
   if (method === 'GET' && path === '/api/users/me') return ok(caller)
+
+  if (method === 'GET' && path === '/api/inventory') {
+    if (!['ADMIN', 'BRANCH_STAFF', 'CENTRAL_OFFICE_STAFF', 'WAREHOUSE_MANAGER'].includes(role)) return forbidden()
+    const requestedBranch = params.branchId === undefined ? null : Number(params.branchId)
+    if (role === 'BRANCH_STAFF' && requestedBranch !== null && requestedBranch !== caller.branchId) return forbidden()
+    const resolvedBranch = caller.branchId ?? requestedBranch
+    if (resolvedBranch === null) return problem(400, 'Validation failed', 'branchId is required.')
+    return ok(state.inventory.filter((item) => item.stockCountId > 0 && (item as InventoryItem & { branchId?: number }).branchId === resolvedBranch))
+  }
+
+  if (method === 'POST' && path === '/api/stock-counts') {
+    if (role !== 'BRANCH_STAFF') return forbidden()
+    if (Number(body?.branchId) !== caller.branchId) return forbidden()
+    if (!Array.isArray(body?.items) || body.items.length === 0) return problem(400, 'Validation failed', 'At least one item is required.')
+    const ids = body.items.map((item: any) => Number(item.ingredientId))
+    if (new Set(ids).size !== ids.length) return problem(400, 'Validation failed', 'Duplicate ingredient IDs are not allowed.')
+    for (const item of body.items) {
+      const ingredient = state.ingredients.find((entry) => entry.id === Number(item.ingredientId) && entry.active)
+      if (!ingredient || !Number.isFinite(Number(item.quantity)) || Number(item.quantity) < 0) {
+        return problem(400, 'Validation failed', 'Each item must reference an active ingredient and have a non-negative quantity.')
+      }
+    }
+    const stockCountId = state.inventory.reduce((max, item) => Math.max(max, item.stockCountId), 0) + 1
+    const countedAt = NOW
+    for (const item of body.items) {
+      const ingredient = state.ingredients.find((entry) => entry.id === Number(item.ingredientId))!
+      const existing = state.inventory.findIndex((entry) => entry.ingredientId === ingredient.id && (entry as InventoryItem & { branchId?: number }).branchId === caller.branchId)
+      const row = { ingredientId: ingredient.id, ingredientName: ingredient.name, quantity: Number(item.quantity), unit: ingredient.stockUnit.symbol, countedAt, stockCountId, branchId: caller.branchId! } as InventoryItem & { branchId: number }
+      if (existing >= 0) state.inventory[existing] = row
+      else state.inventory.push(row)
+    }
+    return ok({ stockCountId, branchId: caller.branchId, countedAt, status: 'SUBMITTED', itemCount: body.items.length }, 201)
+  }
 
   if (path === '/api/users' && method === 'GET') {
     if (role !== 'ADMIN') return forbidden()

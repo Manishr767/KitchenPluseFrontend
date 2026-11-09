@@ -125,3 +125,27 @@ export interface ProblemDetail {
   detail?: string
   errors?: Record<string, string>
 }
+export interface CreateStockCountRequest {
+  branchId: number
+  items: {
+    ingredientId: number
+    quantity: number
+  }[]
+}
+
+export interface StockCountResponse {
+  stockCountId: number
+  branchId: number
+  countedAt: ApiDateTime
+  status: string
+  itemCount: number
+}
+
+export interface InventoryItem {
+  ingredientId: number
+  ingredientName: string
+  quantity: number
+  unit: string
+  countedAt: ApiDateTime
+  stockCountId: number
+}
