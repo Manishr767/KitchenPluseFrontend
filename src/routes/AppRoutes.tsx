@@ -6,6 +6,7 @@ import { BranchListPage } from '@/features/branches/BranchListPage'
 import { MyBranchPage } from '@/features/branches/MyBranchPage'
 import { IngredientDetailPage } from '@/features/ingredients/IngredientDetailPage'
 import { InventoryPage } from '@/features/inventory/InventoryPage'
+import { IngredientRequestsPage } from '@/features/requests/IngredientRequestsPage'
 import { IngredientListPage } from '@/features/ingredients/IngredientListPage'
 import { StockCountingPage } from '@/features/stock-counting/StockCountingPage'
 import { UnitsPage } from '@/features/units/UnitsPage'
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="ingredients/:id" element={<IngredientDetailPage />} />
         <Route path="units" element={<UnitsPage />} />
         <Route path="inventory" element={<InventoryPage />} />
+        <Route path="requests" element={<IngredientRequestsPage />} />
         <Route element={<RoleRoute roles={ADMIN_ONLY} />}>
           <Route path="users" element={<UserListPage />} />
           <Route path="users/:id" element={<UserDetailPage />} />

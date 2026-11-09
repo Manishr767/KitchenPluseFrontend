@@ -139,10 +139,10 @@ describe('session handling', () => {
 
 describe('role-based navigation', () => {
   const cases: [string, string, string[], string[]][] = [
-    ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Inventory', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
-    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredients', 'Units'], ['Users', 'Branches']],
+    ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
+    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'My branch']],
+    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'My branch']],
+    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'Branches']],
     ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch']],
   ]
 
@@ -152,8 +152,11 @@ describe('role-based navigation', () => {
     await screen.findByRole('navigation', { name: 'Main navigation' })
     for (const label of visible) expect(nav().getByRole('link', { name: label })).toBeTruthy()
     for (const label of hidden) expect(nav().queryByRole('link', { name: label })).toBeNull()
-    // placeholders are always present and clearly marked
-    for (const label of ['Ingredient requests', 'Approvals', 'Warehouse', 'Deliveries']) {
+    if (_role === 'DELIVERY_PERSON') {
+      expect(nav().queryByRole('link', { name: 'Ingredient requests' })).toBeNull()
+    }
+    // Remaining workflow modules are placeholders until their APIs are implemented.
+    for (const label of ['Approvals', 'Warehouse', 'Deliveries']) {
       expect(nav().getByRole('link', { name: new RegExp(label) })).toBeTruthy()
     }
   })
