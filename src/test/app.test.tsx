@@ -140,10 +140,10 @@ describe('session handling', () => {
 describe('role-based navigation', () => {
   const cases: [string, string, string[], string[]][] = [
     ['ADMIN', 'token-1', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units', 'Users'], ['My branch', 'Stock counting']],
-    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Approvals', 'Ingredients', 'Units'], ['Users', 'My branch']],
-    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'My branch', 'Approvals']],
-    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'Branches', 'Approvals']],
-    ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch', 'Approvals']],
+    ['CENTRAL_OFFICE_STAFF', 'token-3', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Approvals', 'Ingredients', 'Units'], ['Users', 'My branch', 'Warehouse']],
+    ['WAREHOUSE_MANAGER', 'token-4', ['Dashboard', 'Branches', 'Inventory', 'Ingredient requests', 'Warehouse', 'Ingredients', 'Units'], ['Users', 'My branch', 'Approvals']],
+    ['BRANCH_STAFF', 'token-2', ['Dashboard', 'My branch', 'Stock counting', 'Inventory', 'Ingredient requests', 'Ingredients', 'Units'], ['Users', 'Branches', 'Approvals', 'Warehouse']],
+    ['DELIVERY_PERSON', 'token-5', ['Dashboard', 'Ingredients', 'Units'], ['Users', 'Branches', 'My branch', 'Approvals', 'Warehouse']],
   ]
 
   it.each(cases)('%s sees the right sidebar entries', async (_role, token, visible, hidden) => {
@@ -155,10 +155,7 @@ describe('role-based navigation', () => {
     if (_role === 'DELIVERY_PERSON') {
       expect(nav().queryByRole('link', { name: 'Ingredient requests' })).toBeNull()
     }
-    // Warehouse and Deliveries remain placeholders; Approvals is limited to Central Office and Admin.
-    for (const label of ['Warehouse', 'Deliveries']) {
-      expect(nav().getByRole('link', { name: new RegExp(label) })).toBeTruthy()
-    }
+    expect(nav().getByRole('link', { name: /Deliveries/ })).toBeTruthy()
   })
 
   it('blocks a delivery person from /users in the UI (and the backend would answer 403 anyway)', async () => {
@@ -200,6 +197,25 @@ describe('role-based navigation', () => {
     await waitFor(() => expect(state.calls.some((call) => call.method === 'POST' && call.url === '/api/ingredient-requests/1/review')).toBe(true))
     expect(state.calls.find((call) => call.method === 'POST' && call.url === '/api/ingredient-requests/1/review')?.body).toEqual({ items: [{ ingredientId: 1, approvedQuantity: 8 }], reviewNote: 'Only 8 kg available today' })
     expect(await screen.findByText('PARTIALLY APPROVED')).toBeTruthy()
+  })
+
+  it('warehouse manager can dispatch prepared quantities for an approved request', async () => {
+    state.ingredientRequests[0].status = 'PARTIALLY_APPROVED'
+    state.ingredientRequests[0].items[0].approvedQuantity = 8
+    saveSession('token-4', 600)
+    renderApp('/warehouse')
+    const user = userEvent.setup()
+    expect(await screen.findByRole('heading', { name: 'Warehouse' })).toBeTruthy()
+    const quantity = await screen.findByLabelText('Flour dispatched quantity')
+    await user.clear(quantity)
+    await user.type(quantity, '7')
+    await user.type(screen.getByLabelText('Dispatch note (optional)'), 'Packed today')
+    await user.click(screen.getByRole('button', { name: 'Confirm dispatch' }))
+    await waitFor(() => expect(state.calls.some((call) => call.method === 'POST' && call.url === '/api/warehouse/requests/1/dispatch')).toBe(true))
+    expect(state.calls.find((call) => call.method === 'POST' && call.url === '/api/warehouse/requests/1/dispatch')?.body).toEqual({
+      items: [{ ingredientId: 1, dispatchedQuantity: 7 }], note: 'Packed today',
+    })
+    expect(await screen.findByText('Request #1 dispatched.')).toBeTruthy()
   })
 
   it('blocks non-branch staff from stock counting', async () => {

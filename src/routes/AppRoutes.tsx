@@ -15,6 +15,7 @@ import { UserListPage } from '@/features/users/UserListPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { ApprovalsPage } from '@/features/approvals/ApprovalsPage'
+import { WarehousePage } from '@/features/warehouse/WarehousePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RoleRoute, ProtectedRoute } from './guards'
 import { ADMIN_ONLY, BRANCH_LIST_ROLES, FUTURE_NAV } from './navigation'
@@ -40,6 +41,7 @@ export function AppRoutes() {
         <Route path="units" element={<UnitsPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="requests" element={<IngredientRequestsPage />} />
+        <Route element={<RoleRoute roles={['ADMIN', 'WAREHOUSE_MANAGER']} />}><Route path="warehouse" element={<WarehousePage />} /></Route>
         <Route element={<RoleRoute roles={['ADMIN', 'CENTRAL_OFFICE_STAFF']} />}>
           <Route path="approvals" element={<ApprovalsPage />} />
         </Route>

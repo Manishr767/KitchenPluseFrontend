@@ -29,6 +29,7 @@ export interface FakeState {
   ingredients: Ingredient[]
   inventory: InventoryItem[]
   ingredientRequests: IngredientRequest[]
+  warehouseDispatches: { id: number; ingredientRequestId: number; preparedByUserId: number; dispatchedAt: string; note: string | null; items: { id: number; ingredientId: number; approvedQuantity: number; dispatchedQuantity: number }[] }[]
   /** Every request seen, for assertions. */
   calls: { method: string; url: string; params?: Record<string, unknown>; auth: string | null; body?: unknown }[]
   /** When set, every request fails as if the server were down. */
@@ -61,6 +62,7 @@ export function freshState(): FakeState {
       { id: 3, name: 'Old spice', stockUnit: units[0], active: false, createdAt: NOW, updatedAt: NOW },
     ],
     inventory: [],
+    warehouseDispatches: [],
     ingredientRequests: [{
       id: 1, branchId: 1, createdByUserId: 2, status: 'SUBMITTED', createdAt: NOW, submittedAt: NOW,
       reviewedByUserId: null, reviewedAt: null, reviewNote: null,
@@ -115,6 +117,33 @@ function route(state: FakeState, method: string, path: string, params: Record<st
     request.reviewedAt = NOW
     request.reviewNote = body.reviewNote ?? null
     return ok(request)
+  }
+
+  if (path === '/api/warehouse/approved-requests' && method === 'GET') {
+    if (!['ADMIN', 'WAREHOUSE_MANAGER'].includes(role)) return forbidden()
+    return ok(state.ingredientRequests.filter((request) => ['APPROVED', 'PARTIALLY_APPROVED'].includes(request.status) && !state.warehouseDispatches.some((d) => d.ingredientRequestId === request.id)))
+  }
+  if (path === '/api/warehouse/dispatches' && method === 'GET') {
+    if (!['ADMIN', 'WAREHOUSE_MANAGER'].includes(role)) return forbidden()
+    return ok(state.warehouseDispatches)
+  }
+  const dispatchMatch = path.match(/^\/api\/warehouse\/requests\/(\d+)\/dispatch$/)
+  if (dispatchMatch && method === 'POST') {
+    if (!['ADMIN', 'WAREHOUSE_MANAGER'].includes(role)) return forbidden()
+    const request = state.ingredientRequests.find((r) => r.id === Number(dispatchMatch[1]))
+    if (!request || !['APPROVED', 'PARTIALLY_APPROVED'].includes(request.status)) return problem(422, 'Business rule violation', 'Only approved requests can be dispatched.')
+    if (state.warehouseDispatches.some((d) => d.ingredientRequestId === request.id)) return problem(422, 'Business rule violation', 'This request has already been dispatched.')
+    if (!Array.isArray(body?.items) || body.items.length === 0) return problem(400, 'Validation failed', 'At least one item must be dispatched.')
+    const items = []
+    for (const line of body.items) {
+      const original = request.items.find((i) => i.ingredientId === Number(line.ingredientId))
+      const quantity = Number(line.dispatchedQuantity)
+      if (!original || !original.approvedQuantity || quantity <= 0 || quantity > original.approvedQuantity) return problem(422, 'Business rule violation', 'Dispatched quantity cannot exceed approved quantity.')
+      items.push({ id: items.length + 1, ingredientId: original.ingredientId, approvedQuantity: original.approvedQuantity, dispatchedQuantity: quantity })
+    }
+    const dispatch = { id: state.warehouseDispatches.length + 1, ingredientRequestId: request.id, preparedByUserId: caller.id, dispatchedAt: NOW, note: body.note ?? null, items }
+    state.warehouseDispatches.push(dispatch)
+    return ok(dispatch, 201)
   }
 
   if (method === 'GET' && path === '/api/inventory') {
